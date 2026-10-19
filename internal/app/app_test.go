@@ -15,6 +15,9 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/leowmjw/go-agentic-driven/internal/telemetry"
+	"go.opentelemetry.io/otel"
 )
 
 func testApp() *App { return New(Deps{Logger: slog.New(slog.NewJSONHandler(io.Discard, nil))}) }
@@ -290,15 +293,46 @@ func TestContractAndClientEvents(t *testing.T) {
 		body   string
 		status int
 	}{
-		{`{"name":"clicked","source":"ui","action":"payment.submit","durationMs":12}`, 202},
-		{`{"name":"planned","source":"agent"}`, 202},
-		{`{"name":"x","source":"bad"}`, 400},
-		{`{"name":"x","source":"ui","secret":"must not be recorded"}`, 400},
-		{`{"name":"x","source":"ui","durationMs":-1}`, 400},
+		{`{"action":"payment.submit","duration_ms":12}`, 202},
+		{`{"action":"agent.planned"}`, 202},
+		{`{"action":"x","source":"ui"}`, 400},
+		{`{"action":"x","secret":"must not be recorded"}`, 400},
+		{`{"action":"x","duration_ms":-1}`, 400},
+		{`{"action":"x","name":"forbidden"}`, 400},
+		{`{"action":"x","scenario":"normal"}`, 400},
+		{`{"action":"x","paymentId":"forbidden"}`, 400},
+		{`{"action":"x","durationMs":1}`, 400},
 	} {
 		if w := request(a, "POST", "/api/events", tc.body, ""); w.Code != tc.status {
 			t.Fatal(w.Code, w.Body.String())
 		}
+	}
+}
+
+func TestIncomingW3CTraceLinksWideEvent(t *testing.T) {
+	var logs bytes.Buffer
+	originalTracer, originalErrors := otel.GetTracerProvider(), otel.GetErrorHandler()
+	logger, shutdown, err := telemetry.New(telemetry.Config{Output: &logs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = shutdown(context.Background())
+		otel.SetTracerProvider(originalTracer)
+		otel.SetErrorHandler(originalErrors)
+	}()
+	a := New(Deps{Logger: logger})
+	r := httptest.NewRequest("GET", "/api/session", nil)
+	r.Header.Set("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+	w := httptest.NewRecorder()
+	a.ServeHTTP(w, r)
+	var event map[string]any
+	if w.Code != 200 || json.Unmarshal(logs.Bytes(), &event) != nil {
+		t.Fatal(w.Code, logs.String())
+	}
+	if event["trace_id"] != "4bf92f3577b34da6a3ce929d0e0e4736" ||
+		event["span_id"] == "" || event["span_id"] == "00f067aa0ba902b7" {
+		t.Fatal("wide event must retain the incoming trace and link a new server span", event)
 	}
 }
 

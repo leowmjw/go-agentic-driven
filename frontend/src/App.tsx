@@ -432,10 +432,10 @@ function Application() {
           )}
           <section className="metrics" aria-label="Payment summary">
             <Metric
-              label="Settled balance"
+              label="USD settled balance"
               value={money(data.balance)}
               icon="wallet"
-              note="Sandbox balance · USD"
+              note="Settled receipts · USD only"
               featured
             />
             <Metric

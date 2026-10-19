@@ -21,6 +21,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const Version = "1.0.0"
@@ -285,15 +287,10 @@ func (a *App) seed(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) events(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Name          string   `json:"name"`
-		Source        string   `json:"source"`
-		Action        string   `json:"action"`
-		Outcome       string   `json:"outcome"`
-		Scenario      string   `json:"scenario"`
-		PaymentID     string   `json:"paymentId"`
-		DurationMS    *float64 `json:"durationMs"`
-		DurationSnake *float64 `json:"duration_ms"`
-		Error         struct {
+		Action     string  `json:"action"`
+		Outcome    string  `json:"outcome"`
+		DurationMS float64 `json:"duration_ms"`
+		Error      struct {
 			Kind string `json:"kind"`
 		} `json:"error"`
 		Session struct {
@@ -310,38 +307,24 @@ func (a *App) events(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "validation", "invalid event fields")
 		return
 	}
-	if in.Name == "" {
-		in.Name = in.Action
-	}
-	if in.Source == "" {
-		in.Source = "ui"
-	}
-	duration := 0.0
-	if in.DurationMS != nil {
-		duration = *in.DurationMS
-	}
-	if in.DurationSnake != nil {
-		if in.DurationMS != nil && *in.DurationSnake != duration {
-			fail(w, 400, "validation", "conflicting event durations")
-			return
-		}
-		duration = *in.DurationSnake
-	}
-	if strings.TrimSpace(in.Name) == "" || !slices.Contains([]string{"ui", "agent"}, in.Source) ||
-		duration < 0 || duration > 3600000 {
-		fail(w, 400, "validation", "invalid event name, source or duration")
+	if strings.TrimSpace(in.Action) == "" || in.DurationMS < 0 || in.DurationMS > 3600000 {
+		fail(w, 400, "validation", "invalid event action or duration")
 		return
 	}
-	for _, field := range []string{in.Name, in.Action, in.Outcome, in.Scenario, in.PaymentID, in.Error.Kind, in.Session.Step, in.User.Cohort, in.Client.AppVersion} {
+	for _, field := range []string{in.Action, in.Outcome, in.Error.Kind, in.Session.Step, in.User.Cohort, in.Client.AppVersion} {
 		if len(field) > 80 {
 			fail(w, 400, "validation", "event strings must not exceed 80 bytes")
 			return
 		}
 	}
+	source := "ui"
+	if strings.HasPrefix(in.Action, "agent.") {
+		source = "agent"
+	}
 	a.deps.Logger.InfoContext(r.Context(), "client.event",
-		"event.name", in.Name, "event.source", in.Source, "event.action", in.Action,
-		"event.outcome", in.Outcome, "event.scenario", in.Scenario, "payment.id", in.PaymentID,
-		"duration_ms", duration, "event.duration_ms", duration, "error.kind", in.Error.Kind,
+		"event.name", in.Action, "event.source", source, "event.action", in.Action,
+		"event.outcome", in.Outcome,
+		"duration_ms", in.DurationMS, "event.duration_ms", in.DurationMS, "error.kind", in.Error.Kind,
 		"session.step", in.Session.Step, "user.cohort", in.User.Cohort, "client.app_version", in.Client.AppVersion,
 		"user.role", role(r), "service.name", "finance-ledger", "service.version", a.deps.Version)
 	jsonResponse(w, 202, map[string]bool{"accepted": true})
@@ -407,7 +390,8 @@ func (w *responseWriter) Flush() {
 func (a *App) observe(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := a.deps.Now()
-		ctx, span := otel.Tracer("finance-ledger").Start(r.Context(), "http.request")
+		parentCtx := propagation.TraceContext{}.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+		ctx, span := otel.Tracer("finance-ledger").Start(parentCtx, "http.request", trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 		e := &requestEvent{}
 		r = r.WithContext(context.WithValue(ctx, eventKey{}, e))

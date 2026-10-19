@@ -7,6 +7,13 @@ export default defineConfig({
     react(),
     {
       name: 'bundled-datastar',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: '.keep',
+          source: 'Build output placeholder.\n',
+        })
+      },
       configureServer(server) {
         server.middlewares.use((req, _res, next) => {
           if (req.url?.split('?')[0] === '/datastar.js') {

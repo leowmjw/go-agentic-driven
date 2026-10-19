@@ -122,6 +122,36 @@ describe('API safety', () => {
 })
 
 describe('telemetry isolation', () => {
+  it('posts the exact nested shared contract and accepts a 202 response', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 202 }))
+    vi.stubGlobal('fetch', fetcher)
+    const event = {
+      action: 'payment.submit',
+      outcome: 'failure' as const,
+      error: { kind: 'contract' },
+      session: { step: 'payment.form' },
+      user: { cohort: 'customer' },
+      client: { app_version: '1.0.0' },
+      duration_ms: 12,
+    }
+    await track(event)
+    expect(fetcher).toHaveBeenCalledExactlyOnceWith('/api/events', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: event.action,
+        outcome: event.outcome,
+        client: event.client,
+        error: event.error,
+        session: event.session,
+        user: event.user,
+        duration_ms: event.duration_ms,
+      }),
+      keepalive: true,
+    })
+    expect(console.warn).not.toHaveBeenCalled()
+  })
   it('serializes only allowlisted properties', async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', fetcher)
