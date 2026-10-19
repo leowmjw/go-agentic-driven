@@ -54,14 +54,14 @@ func TestCompare(t *testing.T) {
 			}
 		}, "rollback"},
 		{"missing field", func(b, c []Event) { delete(c[0], "order.value") }, "hold"},
-		{"user cohort mismatch", func(b, c []Event) {
+		{"user cohort diagnostic does not partition samples", func(b, c []Event) {
 			for _, event := range b {
 				event["user.cohort"] = "new"
 			}
 			for _, event := range c {
 				event["user.cohort"] = "returning"
 			}
-		}, "hold"},
+		}, "pass"},
 		{"missing method", func(b, c []Event) { delete(c[0], "http.request.method") }, "hold"},
 		{"missing version", func(b, c []Event) { delete(c[0], "service.version") }, "hold"},
 		{"provider mismatch", func(b, c []Event) {

@@ -98,7 +98,7 @@ func role(r *http.Request) string {
 	if err == nil && slices.Contains(Roles, c.Value) {
 		return c.Value
 	}
-	return "customer"
+	return "guest"
 }
 
 func cohort(r *http.Request) string {
@@ -185,7 +185,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{Name: "demo_role", Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1})
-	jsonResponse(w, 200, map[string]string{"role": "customer"})
+	jsonResponse(w, 200, map[string]string{"role": "guest"})
 }
 
 func (a *App) payments(w http.ResponseWriter, r *http.Request) {
@@ -202,8 +202,8 @@ func (a *App) payments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) createPayment(w http.ResponseWriter, r *http.Request) {
-	if role(r) == "analyst" {
-		fail(w, 403, "forbidden", "analysts have read-only access")
+	if role(r) != "customer" && role(r) != "admin" {
+		fail(w, 403, "forbidden", "customer or admin demo role required to create payments")
 		return
 	}
 	var in PaymentInput

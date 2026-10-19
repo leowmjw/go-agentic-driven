@@ -20,14 +20,16 @@ export async function track(event: Event): Promise<void> {
     ...(event.duration_ms !== undefined && { duration_ms: Math.round(event.duration_ms) }),
   }
   try {
-    await fetch('/api/events', {
+    const response = await fetch('/api/events', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       keepalive: true,
     })
+    if (!response.ok) console.warn('[telemetry] delivery_http_failure')
   } catch {
     // Telemetry must never prevent a payment or recursively report its own failure.
+    console.warn('[telemetry] delivery_network_failure')
   }
 }

@@ -146,6 +146,7 @@
       "properties": {
         "role": {
           "enum": [
+            "guest",
             "customer",
             "analyst",
             "admin"

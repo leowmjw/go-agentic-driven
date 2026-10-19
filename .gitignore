@@ -38,3 +38,4 @@ bin/
 internal/web/dist/*
 !internal/web/dist/.keep
 .celld/
+.sensor-work/

@@ -168,7 +168,7 @@ func collect(events []Event, version string) (map[string][]sample, error) {
 			}
 			parts = append(parts, text(e, key))
 		}
-		for _, key := range []string{"user.role", "region", "session.mode", "user.cohort"} {
+		for _, key := range []string{"user.role", "region", "session.mode"} {
 			parts = append(parts, text(e, key))
 		}
 		keyBytes, _ := json.Marshal(parts)

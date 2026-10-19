@@ -522,9 +522,7 @@ function Application() {
                     value={query}
                     onChange={(event) => {
                       setQuery(event.target.value)
-                    }}
-                    onBlur={() => {
-                      if (query) act('payments.search')
+                      void track({ action: 'payments.search.edit', outcome: 'success' })
                     }}
                   />
                 </label>
@@ -899,6 +897,18 @@ function PaymentModal({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [key, setKey] = useState(() => crypto.randomUUID())
+  useEffect(() => {
+    const abandon = () => {
+      void track({
+        action: 'payment.abandon',
+        outcome: 'failure',
+        error: { kind: 'abandonment' },
+        session: { step: busy ? 'payment.processing' : 'payment.form' },
+      })
+    }
+    window.addEventListener('pagehide', abandon)
+    return () => window.removeEventListener('pagehide', abandon)
+  }, [busy])
   function edited() {
     setKey(crypto.randomUUID())
     setError('')

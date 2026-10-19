@@ -22,6 +22,9 @@ func testApp() *App { return New(Deps{Logger: slog.New(slog.NewJSONHandler(io.Di
 func request(a *App, method, path, body, role string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
+	if role == "" && method == http.MethodPost && path == "/api/payments" {
+		role = "customer"
+	}
 	if role != "" {
 		r.AddCookie(&http.Cookie{Name: "demo_role", Value: role})
 	}
@@ -36,7 +39,7 @@ func input(key, scenario string, amount int64) string {
 
 func TestSessionAndPermissions(t *testing.T) {
 	a := testApp()
-	if w := request(a, "GET", "/api/session", "", ""); w.Code != 200 || w.Body.String() != "{\"role\":\"customer\"}\n" {
+	if w := request(a, "GET", "/api/session", "", ""); w.Code != 200 || w.Body.String() != "{\"role\":\"guest\"}\n" {
 		t.Fatal(w.Code, w.Body.String())
 	}
 
@@ -53,6 +56,9 @@ func TestSessionAndPermissions(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 	if w := request(a, "POST", "/api/payments", input("x", "normal", 100), "analyst"); w.Code != 403 {
+		t.Fatal(w.Code)
+	}
+	if w := request(a, "POST", "/api/payments", input("x", "normal", 100), "guest"); w.Code != 403 {
 		t.Fatal(w.Code)
 	}
 	for _, path := range []string{"/admin", "/admin/events"} {
@@ -201,6 +207,7 @@ func TestSlowPaymentVirtualTime(t *testing.T) {
 func TestCanceledSlowPaymentDoesNotSettle(t *testing.T) {
 	a := testApp()
 	r := httptest.NewRequest("POST", "/api/payments", strings.NewReader(input("slow", "slow", 100)))
+	r.AddCookie(&http.Cookie{Name: "demo_role", Value: "customer"})
 	r.Header.Set("Content-Type", "application/json")
 	ctx, cancel := context.WithCancel(r.Context())
 	cancel()
@@ -303,6 +310,7 @@ func TestCanonicalQuoteAndCohortFields(t *testing.T) {
 		t.Fatal(first.Code, first.Header())
 	}
 	r := httptest.NewRequest("POST", "/api/payments", strings.NewReader(input("expired", "stale_quote", 100)))
+	r.AddCookie(&http.Cookie{Name: "demo_role", Value: "customer"})
 	r.Header.Set("Content-Type", "application/json")
 	r.AddCookie(first.Result().Cookies()[0])
 	w := httptest.NewRecorder()

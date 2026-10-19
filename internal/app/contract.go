@@ -33,7 +33,7 @@ func Contract() []byte {
 		"$id":     "https://ledger.local/contract.json",
 		"$defs": map[string]any{
 			"payment": payment, "paymentInput": input,
-			"session": obj(map[string]any{"role": str(Roles)}, "role"),
+			"session": obj(map[string]any{"role": str(append([]string{"guest"}, Roles...))}, "role"),
 			"payments": obj(map[string]any{
 				"payments": map[string]any{"type": "array", "items": map[string]any{"$ref": "#/$defs/payment"}},
 				"balance": map[string]any{

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { api, ApiError, request, schemas } from './api'
 import { track } from './telemetry'
 
@@ -18,7 +18,11 @@ const input = {
   scenario: 'normal' as const,
   idempotencyKey: '14dff33d-19b5-4ba8-b380-802f3697c6cf',
 }
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => undefined))
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 describe('generated contract validation', () => {
   it('resolves nested payment references in the payments response', () => {
@@ -142,12 +146,24 @@ describe('telemetry isolation', () => {
       error: { kind: 'contract' },
     })
   })
-  it('silently absorbs transport failure without recursion', async () => {
+  it('keeps network failure nonfatal and warns without recursion', async () => {
     const fetcher = vi.fn().mockRejectedValue(new Error('offline'))
     vi.stubGlobal('fetch', fetcher)
     await expect(
       track({ action: 'navigation.overview', outcome: 'success' }),
     ).resolves.toBeUndefined()
     expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(console.warn).toHaveBeenCalledWith('[telemetry] delivery_network_failure')
+  })
+  it('warns with a fixed category on non-2xx responses without recursion', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response('private rejection details', { status: 400 }))
+    vi.stubGlobal('fetch', fetcher)
+    await expect(
+      track({ action: 'navigation.overview', outcome: 'success' }),
+    ).resolves.toBeUndefined()
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(console.warn).toHaveBeenCalledExactlyOnceWith('[telemetry] delivery_http_failure')
   })
 })

@@ -107,8 +107,8 @@ export const api = {
   session: () => request('session', schemas.session) as Promise<{ role: Role }>,
   payments: () => request('payments', schemas.payments) as Promise<Payments>,
   login: (role: Role) => request('login', schemas.session, { role }),
-  logout: () => request('logout', undefined, {}),
-  seed: (scenario: string) => request('seed', undefined, { scenario }),
+  logout: () => request('logout', schemas.session, {}),
+  seed: (scenario: string) => request('seed', schemas.payments, { scenario }),
   pay: async (input: PaymentInput): Promise<Payment> => {
     const parsed = schemas.paymentInput.safeParse(input)
     if (!parsed.success) {
