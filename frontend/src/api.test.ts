@@ -107,9 +107,34 @@ describe('API safety', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('private network data')))
     await expect(api.payments()).rejects.toMatchObject({ kind: 'network' })
   })
-  it('supports no-content logout responses', async () => {
+  it('supports no-content responses only for schema-less requests', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
-    await expect(request('logout', undefined, {})).resolves.toBeUndefined()
+    await expect(request('events', undefined, {})).resolves.toBeUndefined()
+  })
+  it.each([
+    ['logout', () => api.logout()],
+    ['seed', () => api.seed('fresh')],
+  ])(
+    'rejects an invalid %s wrapper response instead of bypassing validation',
+    async (_name, call) => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"unexpected":"private"}')))
+      await expect(call()).rejects.toMatchObject({ kind: 'contract' })
+    },
+  )
+  it('accepts schema-valid logout and seed responses', async () => {
+    const seeded = { payments: [], balance: 0, balances: { USD: 0, EUR: 0, GBP: 0 } }
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockImplementation((url: string) =>
+          Promise.resolve(
+            new Response(JSON.stringify(url === '/api/logout' ? { role: 'guest' } : seeded)),
+          ),
+        ),
+    )
+    await expect(api.logout()).resolves.toEqual({ role: 'guest' })
+    await expect(api.seed('fresh')).resolves.toEqual(seeded)
   })
   it('rejects no-content responses when a generated schema requires a body', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))

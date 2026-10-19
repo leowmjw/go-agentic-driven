@@ -376,7 +376,7 @@ func TestCanonicalQuoteAndCohortFields(t *testing.T) {
 func TestNestedFrontendEventPayload(t *testing.T) {
 	var logs bytes.Buffer
 	a := New(Deps{Logger: slog.New(slog.NewJSONHandler(&logs, nil))})
-	body := `{"action":"payment.submit","outcome":"success","client":{"app_version":"preview"},"error":{"kind":""},"session":{"step":"confirm"},"user":{"cohort":"customer"},"duration_ms":12.5}`
+	body := `{"action":"payment.submit","outcome":"failure","error":{"kind":"contract"},"session":{"step":"payment.form"},"user":{"cohort":"customer"},"client":{"app_version":"1.0.0"},"duration_ms":12}`
 	w := request(a, "POST", "/api/events", body, "")
 	if w.Code != http.StatusAccepted {
 		t.Fatal(w.Code, w.Body.String())
@@ -388,8 +388,8 @@ func TestNestedFrontendEventPayload(t *testing.T) {
 	}
 	for key, expected := range map[string]any{
 		"event.name": "payment.submit", "event.source": "ui", "event.action": "payment.submit",
-		"event.outcome": "success", "client.app_version": "preview", "error.kind": "",
-		"session.step": "confirm", "user.cohort": "customer", "duration_ms": 12.5,
+		"event.outcome": "failure", "client.app_version": "1.0.0", "error.kind": "contract",
+		"session.step": "payment.form", "user.cohort": "customer", "duration_ms": float64(12),
 	} {
 		if event[key] != expected {
 			t.Errorf("%s: got %v, want %v", key, event[key], expected)
