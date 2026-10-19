@@ -1,0 +1,31 @@
+name: Guides and sensors
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version: '1.27.2'
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - name: Contract drift
+        run: |
+          go run ./cmd/server -contract > /tmp/contract.json
+          diff -u frontend/src/contract.json /tmp/contract.json
+      - run: npm --prefix frontend run check
+      - run: npm --prefix frontend test -- --run
+      - run: npm --prefix frontend run build
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: go build ./cmd/server ./cmd/factory ./cmd/sensor
