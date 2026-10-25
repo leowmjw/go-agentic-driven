@@ -1,0 +1,165 @@
+{
+  "$defs": {
+    "payment": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "createdAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "currency": {
+          "enum": [
+            "USD",
+            "EUR",
+            "GBP"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "provider": {
+          "enum": [
+            "bank",
+            "card"
+          ],
+          "type": "string"
+        },
+        "scenario": {
+          "enum": [
+            "normal",
+            "decline",
+            "slow",
+            "risk",
+            "stale_quote"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "settled",
+            "declined",
+            "review",
+            "expired"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "amount",
+        "currency",
+        "provider",
+        "status",
+        "scenario",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "paymentInput": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "currency": {
+          "enum": [
+            "USD",
+            "EUR",
+            "GBP"
+          ],
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "provider": {
+          "enum": [
+            "bank",
+            "card"
+          ],
+          "type": "string"
+        },
+        "scenario": {
+          "enum": [
+            "normal",
+            "decline",
+            "slow",
+            "risk",
+            "stale_quote"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "currency",
+        "provider",
+        "scenario",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
+    "payments": {
+      "additionalProperties": false,
+      "properties": {
+        "balance": {
+          "description": "Legacy USD-only settled balance in minor units. Other currencies are reported in balances.",
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "balances": {
+          "additionalProperties": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "description": "Separate settled minor-unit balances keyed by currency; currencies are never combined.",
+          "type": "object"
+        },
+        "payments": {
+          "items": {
+            "$ref": "#/$defs/payment"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "payments",
+        "balance",
+        "balances"
+      ],
+      "type": "object"
+    },
+    "session": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "enum": [
+            "guest",
+            "customer",
+            "analyst",
+            "admin"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://ledger.local/contract.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

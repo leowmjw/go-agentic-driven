@@ -1,0 +1,107 @@
+[tools]
+go = "1.27.2"
+node = "24"
+"npm:vite-plus" = "1.3.0"
+"github:DarthSim/overmind" = "2.5.1"
+"github:VictoriaMetrics/VictoriaLogs" = { version = "1.53.0", asset_pattern = "victoria-logs-linux-amd64-v1.53.0.tar.gz" }
+
+[env]
+VICTORIALOGS_URL = "http://127.0.0.1:9428"
+REGION = "local"
+
+[tasks.install]
+description = "Install locked frontend dependencies with npm"
+run = "npm --prefix frontend ci"
+
+[tasks.dev]
+description = "Run Go, Vite+, VictoriaLogs, and deployment controller (requires tmux)"
+depends = ["install"]
+run = "overmind start"
+
+[tasks."contract:update"]
+description = "Regenerate the Zod input contract from the Go API"
+run = "go run ./cmd/server -contract > frontend/src/contract.json"
+
+[tasks."contract:check"]
+description = "Fail if Go contract differs from the checked-in frontend contract"
+run = """
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+go run ./cmd/server -contract > "$tmp"
+diff -u frontend/src/contract.json "$tmp"
+"""
+
+[tasks.test]
+description = "Deterministic Go tests including synctest, and Vite+ tests"
+run = ["go test -race ./...", "npm --prefix frontend test -- --run"]
+
+[tasks.check]
+description = "Contract drift, Go vet, and Vite+ format/lint/type sensors"
+depends = ["contract:check"]
+run = ["go vet ./...", "npm --prefix frontend run check"]
+
+[tasks.build]
+description = "Compile frontend into standalone Go server and operation binaries"
+depends = ["install", "contract:check"]
+run = [
+  "npm --prefix frontend run build",
+  "mkdir -p bin",
+  "go build -trimpath -o bin/server ./cmd/server",
+  "go build -trimpath -o bin/factory ./cmd/factory",
+  "go build -trimpath -o bin/sensor ./cmd/sensor",
+]
+
+[tasks.seed]
+description = "Reset the demo to a fresh installation (local API only)"
+run = "go run ./cmd/factory seed -scenario fresh"
+
+[tasks."seed:busy"]
+description = "Seed an e-commerce settlement ledger"
+run = "go run ./cmd/factory seed -scenario busy"
+
+[tasks."seed:incident"]
+description = "Seed payment decline, stale shipping quote and bank risk incidents"
+run = "go run ./cmd/factory seed -scenario incident"
+
+[tasks.simulate]
+description = "Exercise successful payments, declines, slow bank, risk holds, stale quotes, retries"
+run = "go run ./cmd/factory simulate"
+
+[tasks."observe:friction"]
+description = "Extract bounded failure/friction wide events for a repair agent"
+run = "go run ./cmd/factory diagnose"
+
+[tasks."simulate:failures"]
+description = "Exercise expected payment conflict, invalid-money, and forbidden-role errors"
+run = "go run ./cmd/factory simulate -count 5 -failures"
+
+[tasks."deploy:preview"]
+description = "Snapshot standalone binary and start preview at localhost:8091"
+depends = ["build"]
+run = "go run ./cmd/factory preview"
+
+[tasks."deploy:status"]
+run = "go run ./cmd/factory status"
+
+[tasks."deploy:gate"]
+description = "Compare VictoriaLogs baseline/canary; automatically close rejected preview"
+run = "go run ./cmd/factory gate"
+
+[tasks."deploy:promote"]
+description = "Promote gated preview; first deploy requires explicit bootstrap approval"
+run = "go run ./cmd/factory promote"
+
+[tasks."deploy:bootstrap"]
+description = "HUMAN approval: activate first local preview without a baseline"
+run = "go run ./cmd/factory promote -bootstrap"
+
+[tasks."deploy:close"]
+run = "go run ./cmd/factory close"
+
+[tasks."deploy:rollback"]
+description = "Restore previous active binary (in-memory data resets)"
+run = "go run ./cmd/factory rollback"
+
+[tasks."agent:event"]
+description = "Emit an agent task wide event; pass budget/spec flags after --"
+run = "go run ./cmd/sensor event"

@@ -31,3 +31,11 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+node_modules/
+bin/
+.local/
+.overmind.sock
+internal/web/dist/*
+!internal/web/dist/.keep
+.celld/
+.sensor-work/
