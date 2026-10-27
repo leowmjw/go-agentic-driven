@@ -8,6 +8,12 @@
 *.so
 *.dylib
 
+# Local binaries + Overmind + CommandCode
+.commandcode
+bin/
+.local/
+.overmind.sock
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -29,13 +35,20 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+
+# TanStack interface + CellD
 node_modules/
-bin/
-.local/
-.overmind.sock
 internal/web/dist/*
 !internal/web/dist/.keep
 .celld/
 .sensor-work/
+
+# Local data (VictoriaLogs db, app logs) and scratch space
+data/
+tmp/
+
+# Mise
+mise.local.toml
+
